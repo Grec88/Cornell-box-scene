@@ -71,7 +71,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Users\Viktor\libs\SDL2-devel-2.28.5-VC\SDL2-2.28.5\include;C:\Users\Viktor\libs\glew-2.1.0\include\GL;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\Viktor\libs\glm\glm;C:\Users\Viktor\libs\SDL2-devel-2.28.5-VC\SDL2-2.28.5\include;C:\Users\Viktor\libs\glew-2.1.0\include\GL;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Users\Viktor\libs\glew-2.1.0\lib\Release\x64;C:\Users\Viktor\libs\SDL2-devel-2.28.5-VC\SDL2-2.28.5\lib\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -137,12 +137,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Control.cpp" />
     <ClCompile Include="GLInit.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Model.cpp" />
+    <ClCompile Include="View.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="Control.h" />
     <ClInclude Include="GLInit.h" />
     <ClInclude Include="Main.h" />
+    <ClInclude Include="Model.h" />
+    <ClInclude Include="View.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

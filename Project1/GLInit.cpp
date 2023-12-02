@@ -20,3 +20,10 @@ void initGLAttributes(int glMajorVersion, int glMinorVersion, int useDoubleBuffe
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, glMinorVersion);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, useDoubleBuffering);
 }
+
+void tearDown(SDL_Window*& window) {
+	SDL_GL_DeleteContext(window);
+	SDL_DestroyWindow(window);
+
+	SDL_Quit();
+}

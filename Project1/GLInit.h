@@ -9,4 +9,6 @@ void init(SDL_Window*& window);
 
 void initGLAttributes(int glMajorVersion, int glMinorVersion, int useDoubleBuffering);
 
+void tearDown(SDL_Window*& window);
+
 #endif

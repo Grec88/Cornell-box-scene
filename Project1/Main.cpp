@@ -4,16 +4,31 @@ int main(int argc, char* argv[]) {
 	SDL_Window* main_window;
 	init(main_window);
 
-	SDL_Event Event;
+	Model model;
+	Camera camera;
+	View view(model, camera);
+	Control control(model, view);
+
+	const double dt = 10;
+	double accumulatedTime = 0.0;
+	double lastTime = SDL_GetTicks();
+	double currentTime;
+
 	while (true) {
-		glClearColor(0, 0, 1, 1);
-		glClear(GL_COLOR_BUFFER_BIT);
-		glFlush();
 
-		while (SDL_PollEvent(&Event)) {
+		currentTime = SDL_GetTicks();
+		accumulatedTime += currentTime - lastTime;
+		lastTime = currentTime;
 
-			SDL_GL_SwapWindow(main_window);
+		control.handleInput();
+
+		while (accumulatedTime > dt) {
+			accumulatedTime -= dt;
 		}
+
+		view.render(main_window);
 	}
+
+	tearDown(main_window);
 	return 0;
 }
