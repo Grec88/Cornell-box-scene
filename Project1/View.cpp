@@ -3,11 +3,10 @@
 View::View(Model& model, Camera& camera) :model(model),camera(camera) {
     glEnable(GL_DEPTH_TEST);
 
+    vertex_shader = LoadShader(std::string("GLSL/vertex_shader.txt"), GL_VERTEX_SHADER);
+    fragment_shader = LoadShader(std::string("GLSL/fragment_shader.txt"), GL_FRAGMENT_SHADER);
 
-    GLuint vertex_shader = LoadShader(std::string("GLSL/vertex_shader.txt"), GL_VERTEX_SHADER);
-    GLuint fragment_shader = LoadShader(std::string("GLSL/fragment_shader.txt"), GL_FRAGMENT_SHADER);
-
-    GLuint shader_program = glCreateProgram();
+    shader_program = glCreateProgram();
     glAttachShader(shader_program, vertex_shader);
 
     glBindFragDataLocation(shader_program, 0, "color_out");
@@ -24,27 +23,15 @@ View::View(Model& model, Camera& camera) :model(model),camera(camera) {
 
     glUseProgram(shader_program);
 
-    glGenVertexArrays(1, &triangle_settings);
-    glBindVertexArray(triangle_settings);
     mvp_uniform_attribute = glGetUniformLocation(shader_program, "mvp");
+    light_position_uniform_attribute = glGetUniformLocation(shader_program, "light_position");
+    camera_position_uniform_attribute = glGetUniformLocation(shader_program, "camera_position");
 
-    float triangle_data[] = {
-        -0.5, -0.5, 0, 1.0, 0, 0,
-        0.5, -0.5, 0, 1.0, 0, 0,
-        0.5,  0.5, 0, 1.0, 0, 0
-    };
+    scene_loader = new SceneLoader(*this);
+}
 
-    glGenBuffers(1, &triangle_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, triangle_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(triangle_data), triangle_data, GL_STATIC_DRAW);
-
-    GLint vertex_position_attribute = glGetAttribLocation(shader_program, "vertex_position");
-    glVertexAttribPointer(vertex_position_attribute, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(vertex_position_attribute);
-
-    GLint color_in_attribute = glGetAttribLocation(shader_program, "color_input");
-    glVertexAttribPointer(color_in_attribute, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(color_in_attribute);
+View::~View() {
+    delete scene_loader;
 }
 
 void View::render(SDL_Window* window) {
@@ -54,37 +41,12 @@ void View::render(SDL_Window* window) {
 
     camera.updateViewMatrix();
 
-    glm::vec3 camera_position(0, 0, -1.0f);
-    glm::vec3 camera_direction(0, 0, 1.0f);
-    glm::vec3 camera_up(0, 1.0f, 0);
-    glm::mat4 view_matrix = glm::lookAt(camera_position, camera_position + camera_direction, camera_up);
-
-    glm::mat4 projection_matrix = glm::perspective(1.57f, 4.0f / 3.0f, 0.1f, 100.0f);
-
-    glm::vec3 scaling(1.0f, 1.0f, 1.0f);
-    glm::vec3 translation(0.5f, 0, -0.1f);
-    glm::vec3 rotation_axis(0, 1.0f, 0);
-    float rotation_angle = 0;
-    glm::mat4 model_matrix = glm::translate(glm::rotate(glm::scale(
-        glm::mat4(1.0f), scaling), rotation_angle, rotation_axis), translation);
-
-    glm::mat4 model_view_projection = camera.projection_matrix * camera.view_matrix * model_matrix;
+    glm::mat4 model_view_projection = camera.projection_matrix * camera.view_matrix;
 
     glUniformMatrix4fv(mvp_uniform_attribute, 1, GL_FALSE, &model_view_projection[0][0]);
-
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-
-    translation = glm::vec3(-0.5f, 0, 0.1f);
-    model_matrix = glm::translate(glm::rotate(glm::scale(
-        glm::mat4(1.0f), scaling), rotation_angle, rotation_axis), translation);
-
-    model_view_projection = camera.projection_matrix*camera.view_matrix*model_matrix;
-
-    glUniformMatrix4fv(mvp_uniform_attribute, 1, GL_FALSE, &model_view_projection[0][0]);
-
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-
-  
+    glUniform3fv(light_position_uniform_attribute, 1, &light_position[0]);
+    glUniform3fv(camera_position_uniform_attribute, 1, &camera.position[0]);
+    glDrawArrays(GL_TRIANGLES, 0, scene_loader->number_of_vertices_in_scene);
 
     glFlush();
 
@@ -119,4 +81,81 @@ void CheckLinkStatus(GLuint& shader_program) {
         char buffer[512];
         glGetProgramInfoLog(shader_program, 512, nullptr, buffer);
     }
+}
+
+void View::SceneLoader::loadAllRectangles() {
+    loadRectangle(view.model.scene_floor);
+    loadRectangle(view.model.scene_ceiling);
+    loadRectangle(view.model.scene_back_wall);
+    loadRectangle(view.model.scene_right_wall);
+    loadRectangle(view.model.scene_left_wall);
+    loadBlock(view.model.tall_block);
+    loadBlock(view.model.short_block);
+}
+
+void View::SceneLoader::loadBlock(const Block& block) {
+    for (size_t i = 0; i < block.block_sides.size(); i++) {
+        loadRectangle(block.block_sides[i]);
+    }
+}
+
+
+void View::SceneLoader::loadRectangle(const Rectangle& rectangle) {
+    glm::vec3 rectangle_normal = glm::normalize(glm::cross(
+        (rectangle[0] - rectangle[1]), rectangle[0] - rectangle[2]));
+    loadRectangleVertex(0, rectangle, rectangle_normal);
+    loadRectangleVertex(1, rectangle, rectangle_normal);
+    loadRectangleVertex(2, rectangle, rectangle_normal);
+    loadRectangleVertex(0, rectangle, rectangle_normal);
+    loadRectangleVertex(2, rectangle, rectangle_normal);
+    loadRectangleVertex(3, rectangle, rectangle_normal);
+}
+
+void View::SceneLoader::loadRectangleVertex(const int& vertex_number, const Rectangle& rectangle,
+    const glm::vec3& vertex_normal) {
+    for (size_t j = 0; j < 3; j++) {
+        rectangle_data_vector.push_back(rectangle[vertex_number][j]);
+    }
+    for (size_t i = 0; i < 3; i++) {
+        rectangle_data_vector.push_back(rectangle.RGB_color[i]);
+    }
+    for (size_t i = 0; i < 3; i++) {
+        rectangle_data_vector.push_back(vertex_normal[i]);
+    }
+}
+
+View::SceneLoader::SceneLoader(View& view) :view(view) {
+
+    loadAllRectangles();
+    float* rectangle_data_array = new float[rectangle_data_vector.size()];
+    for (size_t i = 0; i < rectangle_data_vector.size(); i++) {
+        rectangle_data_array[i] = rectangle_data_vector[i];
+    }
+
+    number_of_vertices_in_scene = rectangle_data_vector.size() / 2; //half of the data is color data
+
+    GLuint vertex_array_object;
+    glGenVertexArrays(1, &vertex_array_object);
+    glBindVertexArray(vertex_array_object);
+
+    GLuint rectangle_buffer;
+    glGenBuffers(1, &rectangle_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, rectangle_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * rectangle_data_vector.size(), rectangle_data_array, GL_STATIC_DRAW);
+
+    delete[] rectangle_data_array;
+
+    GLint vertex_position_attribute = glGetAttribLocation(view.shader_program, "vertex_position");
+    glVertexAttribPointer(vertex_position_attribute, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), 0);
+    glEnableVertexAttribArray(vertex_position_attribute);
+
+    GLint color_input_attribute = glGetAttribLocation(view.shader_program, "color_input");
+    glVertexAttribPointer(color_input_attribute, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+        (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(color_input_attribute);
+
+    GLint vertex_normal_attribute = glGetAttribLocation(view.shader_program, "vertex_normal_in");
+    glVertexAttribPointer(vertex_normal_attribute, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float),
+        (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(vertex_normal_attribute);
 }
